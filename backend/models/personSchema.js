@@ -1,8 +1,16 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema
+const Schema = mongoose.Schema ;
+//using the uuid package to generate unique ids
+const {v4 : uuidv4} = require('uuid');
 
 //creating the person schema
 const personSchema = new Schema ({
+    personId : {
+        type: string ,
+        default: uuidv4,
+        index : true,
+        unique: true
+    },
     name:{type: String , required: true, trim: true},
     email : {type: String , required: true, unique: true, lowercase: true, trim: true},
     passwordHash:{type: String, required: true},
@@ -23,7 +31,7 @@ const personSchema = new Schema ({
     timezone:{type: String},
         // Role-specific fields
     user: {
-        goal: {type: String, default:[]},
+        goal: {type: [String], default:[]},
         preferences:{
             Notifications :{type: Boolean, default: true},
             reminders:{type: Boolean, default: true},
@@ -50,7 +58,7 @@ const personSchema = new Schema ({
         permissions:{
             type: String,
             enum:['manageUsers','manageContent','manageProfessionals', 'viewAnalitics', 'systemConfig'],
-            lastLogin:{type: Datetime},
+            lastLogin:{type: Date},
         }
     }
 },

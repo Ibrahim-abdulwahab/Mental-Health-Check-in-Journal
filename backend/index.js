@@ -47,11 +47,6 @@ res.status(err.status || 500).json({
     message : err.message || "Internal Server Error"
 
 })
-
-
-
-
-
 //Running the server 
 // define the port
 const PORT=process.env.PORT || 5000;
