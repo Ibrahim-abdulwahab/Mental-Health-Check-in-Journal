@@ -53,13 +53,6 @@ const personSchema = new Schema ({
             lastLogin:{type: Datetime},
         }
     }
-}); 
-
-//Middleware to update the updatedAt field before saving
-personSchema.pre('save', function(next){
-    this.updatedAt = Date.now();
-    next();
-
 },
 { timestamps: true }
 );
