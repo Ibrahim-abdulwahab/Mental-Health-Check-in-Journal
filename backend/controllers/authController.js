@@ -10,7 +10,7 @@ exports.signUp = async(req, res , next) =>{
 
 
         //----------normalize the inputs and simple validations-----------
-        const {name, email, password, role} = req.body;
+        const {name, email, password, role, roleSecret} = req.body;
         
         //validating the input fields
         if (!name || !email || !password){
@@ -37,7 +37,7 @@ exports.signUp = async(req, res , next) =>{
           : process.env.PROFESSIONAL_SIGNUP_SECRET;
 
       if (!expected || roleSecret !== expected) {
-        errors.push(`Invalid or missing roleSecret for role "${role}".`);
+         return res.status(403).json({ message: `Invalid or missing roleSecret for role "${role}".` });
       }
     }
 
@@ -55,11 +55,18 @@ exports.signUp = async(req, res , next) =>{
     const newUser = new Person({
         name,
         email,
-        password: passwordHash,
+        passwordHash,
         role: role || 'user' //default role is user
     });
     await newUser.save();
     res.status(201).json({message: "User registered successfully"});
+    res.status(201).json({
+    personId: newUser.personId,
+    name: newUser.name,
+    email: newUser.email,
+    role: newUser.role,
+    createdAt: newUser.createdAt
+});
     }catch(err){
         if (err.name === 'ValidationError') {
             const errors = Object.values(err.errors).map(val => val.message);

@@ -6,7 +6,7 @@ const {v4 : uuidv4} = require('uuid');
 //creating the person schema
 const personSchema = new Schema ({
     personId : {
-        type: string ,
+        type: String ,
         default: uuidv4,
         index : true,
         unique: true
