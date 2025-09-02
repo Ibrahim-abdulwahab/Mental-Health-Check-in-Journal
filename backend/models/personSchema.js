@@ -30,6 +30,7 @@ const personSchema = new Schema ({
         },
     timezone:{type: String},
         // Role-specific fields
+ refreshToken : [String], 
     user: {
         goal: {type: [String], default:[]},
         preferences:{
