@@ -7,9 +7,9 @@ const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 
 // ---------------- SIGNUP ----------------
-exports.signUp = async (req, res, next) => {
+exports.signup = async (req, res, next) => {
   try {
-    const { name, email, password, role, roleSecret } = req.body;
+    const { name, email, password, role } = req.body;
 
     // --- Input validation ---
     if (!name || !email || !password) {
@@ -24,7 +24,7 @@ exports.signUp = async (req, res, next) => {
     if (password.length < 8) {
       return res.status(400).json({ message: "Password must be at least 8 characters long" });
     }
-
+/*
     // --- Protect elevated roles ---
     if (['professional', 'admin'].includes(role)) {
       const expected = role === 'admin'
@@ -34,7 +34,7 @@ exports.signUp = async (req, res, next) => {
         return res.status(403).json({ message: `Invalid or missing roleSecret for role "${role}".` });
       }
     }
-
+*/
     // --- Check if user exists ---
     const existingUser = await Person.findOne({ email });
     if (existingUser) {
@@ -50,7 +50,7 @@ exports.signUp = async (req, res, next) => {
       email,
       passwordHash,
       role: role || 'user',
-      refreshTokens: []
+      refreshToken: [] // Fixed field name
     });
     await newUser.save();
 
@@ -59,8 +59,8 @@ exports.signUp = async (req, res, next) => {
     const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
     const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
 
-    // Store refresh token in DB
-    newUser.refreshTokens.push(refreshToken);
+    // Store refresh token
+    newUser.refreshToken.push(refreshToken);
     await newUser.save();
 
     res.status(201).json({
@@ -118,12 +118,18 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    // Update admin's last login
+    if (existingUser.role === 'admin') {
+      existingUser.admin.lastLogin = new Date();
+    }
+
+    // Generate tokens
     const payload = { userId: existingUser._id, role: existingUser.role };
     const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
     const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
 
-    // Store refresh token in DB
-    existingUser.refreshTokens.push(refreshToken);
+    // Store refresh token
+    existingUser.refreshToken.push(refreshToken);
     await existingUser.save();
 
     res.json({
@@ -150,10 +156,10 @@ exports.logout = async (req, res, next) => {
       return res.status(400).json({ message: "Refresh token is required" });
     }
 
-    const user = await Person.findOne({ refreshTokens: refreshToken });
+    const user = await Person.findOne({ refreshToken: refreshToken });
 
     if (user) {
-      user.refreshTokens = user.refreshTokens.filter(token => token !== refreshToken);
+      user.refreshToken = user.refreshToken.filter(token => token !== refreshToken);
       await user.save();
     }
 

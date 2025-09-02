@@ -1,58 +1,60 @@
-const express= require("express");
+const express = require("express");
 const mongoose = require("mongoose");
-const cors = require('cors');
-//the auth routes
-const authRoutes = require('./routers/auth');
-
-
-//loading the .env variables
+const cors = require("cors");
 require("dotenv").config();
 
+// Import routes
+const authRoutes = require("./routes/auth");
 
-const app=express();
-//Middleware
+const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
-//routes middleware
-app.use('/api/auth', authRoutes);
+
+// Routes
+app.use("/api/auth", authRoutes);
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
   console.error("Global error handler:", err);
 
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
+  // Handle Mongoose validation errors
+  if (err.name === "ValidationError") {
     const errors = Object.values(err.errors).map(val => val.message);
-    return res.status(400).json({ message: errors.join(', ') });
+    return res.status(400).json({ message: errors.join(", ") });
   }
 
-  // Duplicate key error
+  // Handle duplicate key errors
   if (err.code === 11000) {
     return res.status(409).json({
       status: "fail",
       message: "Duplicate field value entered",
       field: Object.keys(err.keyValue)[0],
-      value: Object.values(err.keyValue)[0]
+      value: Object.values(err.keyValue)[0],
     });
   }
 
-  // Generic fallback
+  // Fallback for other errors
   res.status(err.status || 500).json({
     status: "error",
-    message: err.message || "Internal Server Error"
+    message: err.message || "Internal Server Error",
   });
 });
 
-//Running the server 
-// define the port
-const PORT=process.env.PORT || 5000;
+// Server Port
+const PORT = process.env.PORT || 5000;
 
-// to connect to the mongoDB database
+// MongoDB Connection
 mongoose
-.connect(process.env.MONGOURL)
-.then(()=>console.log("MongoDB Connected"))
-.catch((err)=>console.log(err));
+  .connect(process.env.MONGOURL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-app.listen(PORT,()=>{
-    console.log("Server is running on port " + PORT);
-})
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+});
