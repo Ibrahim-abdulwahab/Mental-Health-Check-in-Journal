@@ -13,7 +13,7 @@ const personSchema = new Schema ({
     },
     name:{type: String , required: true, trim: true},
     email : {type: String , required: true, unique: true, lowercase: true, trim: true},
-    passwordHash:{type: String, required: true},
+    passwordHash:{type: String},
     role:{
         type: String , 
         enum:['admin','user', 'professional'], 
@@ -59,8 +59,8 @@ const personSchema = new Schema ({
         permissions:{
             type: String,
             enum:['manageUsers','manageContent','manageProfessionals', 'viewAnalitics', 'systemConfig'],
-            lastLogin:{type: Date},
-        }
+        },
+         lastLogin:{type: Date},
     }
 },
 { timestamps: true }
