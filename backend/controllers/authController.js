@@ -1,172 +1,105 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const Person = require('../models/personSchema');
-const validator = require('validator');
+const bcrypt = require("bcrypt");
+const validator = require("validator");
+const jwt = require('jsonwebtoken');
+const Invite = require("../models/Invite");
 
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 
-// ---------------- SIGNUP ----------------
-exports.signup = async (req, res, next) => {
-  try {
-    const { name, email, password, role } = req.body;
+//signup requires: name , email, password(a strong password), role 
+exports.signup = async(req,res,next)=>{
+    try{
+        const role = req.body['role'];
+        //------------first validating all the inputs of the recieved request---------------
 
-    // --- Input validation ---
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email and password are required" });
-    }
-    if (name.length <= 2 || name.length > 50) {
-      return res.status(400).json({ message: "Name must be 3-50 characters" });
-    }
-    if (!validator.isEmail(email)) {
-      return res.status(400).json({ message: "Please enter a valid email address" });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ message: "Password must be at least 8 characters long" });
-    }
-/*
-    // --- Protect elevated roles ---
-    if (['professional', 'admin'].includes(role)) {
-      const expected = role === 'admin'
-        ? process.env.ADMIN_SIGNUP_SECRET
-        : process.env.PROFESSIONAL_SIGNUP_SECRET;
-      if (!expected || roleSecret !== expected) {
-        return res.status(403).json({ message: `Invalid or missing roleSecret for role "${role}".` });
-      }
-    }
-*/
-    // --- Check if user exists ---
-    const existingUser = await Person.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ message: "User with this email already exists" });
-    }
+        //cheking if the email is valid entered by the person
+        if(!validator.isEmail(req.body["email"])){
+            return res.status(400).json({message:"Invalid email address"});
+        }
+        //validating the entered name of the user 
+        if (req.body["name"].length < 3 ){
+            return res.status(400).json({message: "invalid name"});
+        }
+        //checking the strength of the entered password
+        if(req.body["password"].length < 8){
+            return res.status(400).json("your password must be at least 8 characters");
+        }
+        //checking if the password contains upper case letters , numbers , symbols using validator
+        if (!validator.isStrongPassword(req.body["password"],{minUppercase: 1, minNumbers:1, minSymbols:1})){
+            return res.status(400).json({messsage: "password must contain at least one Upper case letter, a symbol and a number for security reasons"})
+        }
+        
+        //second --checking if the person exists by his email--
+         const checkPersonExistance = await Person.findOne({email:req.body["email"]});
+         if (checkPersonExistance){
+            return res.status(409).json({message:"This person already exists"})
+         }
 
     // --- Hash password ---
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(req.body["password"], 12);
 
-    // --- Create user ---
-    const newUser = new Person({
-      name,
-      email,
+
+    
+    const newPerson = await Person.create({
+      name : req.body["name"],
+      email: req.body["email"],
       passwordHash,
-      role: role || 'user',
-      refreshToken: [] // Fixed field name
+      role : req.body["role"],
     });
-    await newUser.save();
-
-    // --- Generate tokens ---
-    const payload = { userId: newUser._id, role: newUser.role };
-    const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
-
-    // Store refresh token
-    newUser.refreshToken.push(refreshToken);
-    await newUser.save();
-
-    res.status(201).json({
-      message: "User registered successfully",
-      accessToken,
-      refreshToken,
-      person: {
-        personId: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        createdAt: newUser.createdAt
-      }
+      const token = jwt.sign(
+      { personId: newPerson.personId, role: newPerson.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7h' }
+    );
+    // Send response
+       res.status(201).json({
+      userId: newPerson.personId,
+      token,
+      name: newPerson.name,
+      email: newPerson.email,
+      role: newPerson.role,
+      createdAt: newPerson.createdAt
     });
 
-  } catch (err) {
-    if (err.name === 'ValidationError') {
-      const errors = Object.values(err.errors).map(val => val.message);
-      return res.status(400).json({ message: errors.join(', ') });
+   }catch(err){
+        console.log(err);
+        res.status(500).json({message: "internal server error"});
+        next(err);
     }
-    if (err.code === 11000) {
-      return res.status(409).json({
-        status: "fail",
-        message: "Duplicate field value entered",
-        field: Object.keys(err.keyValue)[0],
-        value: Object.values(err.keyValue)[0]
-      });
-    }
-    next(err);
-  }
 };
 
-// ---------------- LOGIN ----------------
-exports.login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
+//to login you need the email and password
+exports.login = async (req,res,next)=>{
+    try{
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+        //getting the request params and destructure them
+        const {email,password} = req.body;
+        //validating the given inputs
+        if (!email || !password){
+            return res.status(400).json("missing inputs");
+        }
+        if (!validator.isEmail(email)){
+            return res.status(400).json({message: "please enter a valid email"});
+        }
+        //finding the matching user in the database
+        const checkUserExistance = await Person.findOne({email});
+        if (!checkUserExistance){
+            return res.status(400).json({message: "User is not found"});
+        }
+
+        //if the user's email in db check if correct password
+        const matchingPassword  = await bcrypt.compare(password, checkUserExistance.passwordHash);
+        if (!matchingPassword){
+            return res.status(400).json({message: "Invalid Credentials" });
+        }
+        //sendToken(checkUserExistance, 200, res);
+        res.status(200).json({message: "welcome back"})
+
+    }catch(err){
+        console.log(err);
+        res.status(500).json({message: err.message});
+        next(err);
     }
-    if (!validator.isEmail(email)) {
-      return res.status(400).json({ message: "Please enter a valid email address" });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ message: "Password must be at least 8 characters long" });
-    }
+}
 
-    const existingUser = await Person.findOne({ email });
-    if (!existingUser) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
 
-    const isMatch = await bcrypt.compare(password, existingUser.passwordHash);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
 
-    // Update admin's last login
-    if (existingUser.role === 'admin') {
-      existingUser.admin.lastLogin = new Date();
-    }
-
-    // Generate tokens
-    const payload = { userId: existingUser._id, role: existingUser.role };
-    const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
-
-    // Store refresh token
-    existingUser.refreshToken.push(refreshToken);
-    await existingUser.save();
-
-    res.json({
-      accessToken,
-      refreshToken,
-      user: {
-        userId: existingUser._id,
-        name: existingUser.name,
-        email: existingUser.email,
-        role: existingUser.role
-      }
-    });
-
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ---------------- LOGOUT ----------------
-exports.logout = async (req, res, next) => {
-  try {
-    const { refreshToken } = req.body;
-    if (!refreshToken) {
-      return res.status(400).json({ message: "Refresh token is required" });
-    }
-
-    const user = await Person.findOne({ refreshToken: refreshToken });
-
-    if (user) {
-      user.refreshToken = user.refreshToken.filter(token => token !== refreshToken);
-      await user.save();
-    }
-
-    // Always return 200, even if token not found
-    res.status(200).json({ message: "Successfully logged out" });
-
-  } catch (err) {
-    next(err);
-  }
-};
