@@ -11,8 +11,8 @@ const personSchema = new Schema ({
         index : true,
         unique: true
     },
-    name:{type: String , required: true, trim: true},
-    email : {type: String , required: true, unique: true, lowercase: true, trim: true},
+    name:{type: String , required: [true, "name is required"], trim: true, minLength:3},
+    email : {type: String , required: [true, "required email"], unique: true, lowercase: true, trim: true},
     passwordHash:{type: String},
     role:{
         type: String , 
@@ -30,7 +30,7 @@ const personSchema = new Schema ({
         },
     timezone:{type: String},
         // Role-specific fields
- refreshToken : [String], 
+    refreshToken : [String], 
     user: {
         goal: {type: [String], default:[]},
         preferences:{
@@ -68,4 +68,6 @@ const personSchema = new Schema ({
 
 //create the model and export it
 module.exports = mongoose.model('Person', personSchema);
+//we declare it as a singular form (Person)
+//mongdb later on make a collection of it called (persons)
 

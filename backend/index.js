@@ -1,60 +1,19 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
+const express = require('express'); //used to create a new app instance(accepting new connection)
+const app = express(); //calling express
+const DB = require("./database").connectDB; //a pointer to the database so that we can connect to it later
+const authRouter = require("../backend/routes/auth");
 
-// Import routes
-const authRoutes = require("./routes/auth");
+DB();//connecting to the DB
 
-const app = express();
+//middleware: function run automatically without calling on any req,res
+app.use(express.json()); //create a middleware that only looks for json data
+app.use('/api/auth', authRouter);
 
-// Middleware
-app.use(cors());
-app.use(express.json());
 
-// Routes
-app.use("/api/auth", authRoutes);
 
-// Global error handling middleware
-app.use((err, req, res, next) => {
-  console.error("Global error handler:", err);
 
-  // Handle Mongoose validation errors
-  if (err.name === "ValidationError") {
-    const errors = Object.values(err.errors).map(val => val.message);
-    return res.status(400).json({ message: errors.join(", ") });
-  }
+app.listen(3000, ()=>{
+  console.log("Server is running on port 3000 >'_'<");
+}); //listening on port we are using 
 
-  // Handle duplicate key errors
-  if (err.code === 11000) {
-    return res.status(409).json({
-      status: "fail",
-      message: "Duplicate field value entered",
-      field: Object.keys(err.keyValue)[0],
-      value: Object.values(err.keyValue)[0],
-    });
-  }
 
-  // Fallback for other errors
-  res.status(err.status || 500).json({
-    status: "error",
-    message: err.message || "Internal Server Error",
-  });
-});
-
-// Server Port
-const PORT = process.env.PORT || 5000;
-
-// MongoDB Connection
-mongoose
-  .connect(process.env.MONGOURL, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-});

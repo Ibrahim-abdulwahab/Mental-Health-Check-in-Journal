@@ -2,7 +2,7 @@ const Person = require('../models/personSchema');
 const bcrypt = require("bcrypt");
 const validator = require("validator");
 const jwt = require('jsonwebtoken');
-const Invite = require("../models/Invite");
+
 
 
 //signup requires: name , email, password(a strong password), role 
@@ -98,6 +98,31 @@ exports.login = async (req,res,next)=>{
         console.log(err);
         res.status(500).json({message: err.message});
         next(err);
+    }
+}
+
+
+
+
+//logging out by giving the refresh token
+
+exports.logout = async (req,res,next)=>{
+    try{
+
+        //get the refresh token from the body
+        const refreshToken = req.body['refreshToken'];
+        if(!refreshToken){
+            return res.status(400).json({message: "refresh token required to logout"});
+
+        }
+        //find the person who has this token and delete it for him
+        await Person.findByIdAndUpdate(refreshToken.personId,{$pull : {refreshToken}});
+        return res.status(200).json({message:"successfully logged out"});
+
+    }catch(err){
+        console.log(err);
+         res.status(500).json({message:"internal server error"});
+         next(err);
     }
 }
 
